@@ -254,7 +254,7 @@ def process_navigation_commands(commands, default_pdf="output.pdf", who="profile
                         page.keyboard.press(key_name)
 
                 elif cmd == "type":
-                    text = parts[1]
+                    text = " ".join(parts[1:]) # everything after "type"
                     page.keyboard.type(text)
 
                 elif cmd == "help":
