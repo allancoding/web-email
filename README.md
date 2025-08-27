@@ -25,6 +25,38 @@ git clone https://github.com/allancoding/web-email.git
 cd web-email
 ```
 
+### 2. Create a virtual environment
+```bash
+python -m venv .venv
+``` 
+
+### 3. Activate the virtual environment
+```bash
+source .venv/bin/activate
+```
+
+#### Linux/macOS (bash/zsh):
+```bash
+source .venv/bin/activate
+```
+
+#### Windows (cmd):
+```bash
+.venv\Scripts\activate
+```
+
+#### Windows (PowerShell):
+```bash
+.venv\Scripts\Activate.ps1
+```
+
+### 4. Install dependencies
+```bash
+pip install -r requirements.txt
+```
+
+Note: `chrome` (google-chrome) must be installed and accessible in your PATH.
+
 ---
 
 ## 🚀 Usage
