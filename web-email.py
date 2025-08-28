@@ -15,21 +15,25 @@ from config import (
 
 # --- EMAIL FETCH ---
 def fetch_latest_email():
-    """Fetch newest unread email sent to VALID_RECIPIENT, mark as read"""
+    """Fetch newest unread email sent to VALID_RECIPIENT, mark as read, return sender, body, UID."""
     mail = imaplib.IMAP4_SSL(IMAP_SERVER)
     mail.login(EMAIL_ACCOUNT, EMAIL_PASSWORD)
     mail.select(CHECK_FOLDER)
 
-    status, data = mail.search(None, 'UNSEEN')
+    # Use UID search for consistency
+    status, data = mail.uid('search', None, 'UNSEEN')
     if status != "OK":
+        mail.logout()
         return None, None, None
 
-    email_ids = data[0].split()
-    if not email_ids:
+    email_uids = data[0].split()
+    if not email_uids:
+        mail.logout()
         return None, None, None
 
-    for email_id in email_ids[::-1]:  # newest first
-        status, msg_data = mail.fetch(email_id, "(RFC822)")
+    # Iterate from newest to oldest
+    for uid in email_uids[::-1]:
+        status, msg_data = mail.uid('fetch', uid, "(RFC822)")
         if status != "OK":
             continue
 
@@ -42,12 +46,12 @@ def fetch_latest_email():
 
         sender = email.utils.parseaddr(msg["From"])[1]
 
-        # --- whitelist check ---
+        # Whitelist check
         if sender.lower() not in [addr.lower() for addr in WHITELIST]:
             print(f"Rejected email from {sender} (not in whitelist)")
             continue
 
-        # Get body text
+        # Extract body text
         body = ""
         if msg.is_multipart():
             for part in msg.walk():
@@ -57,14 +61,13 @@ def fetch_latest_email():
         else:
             body = msg.get_payload(decode=True).decode(errors="ignore")
 
-        # --- log body ---
-        print(f"Email from {sender} to {recipient}:\n{body}\n{'-'*40}")
+        # Mark as read using UID
+        mail.uid('STORE', uid, '+FLAGS', '\\Seen')
 
-        # Mark as read
-        mail.store(email_id, '+FLAGS', '\\Seen')
+        mail.logout()
+        return sender, body.strip(), uid  # Return UID for deletion/trash
 
-        return sender, body.strip(), email_id  # return ID for deletion
-
+    mail.logout()
     return None, None, None
 
 # --- PARSING ---
