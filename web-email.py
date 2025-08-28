@@ -336,8 +336,8 @@ def send_reply(recipient, pdf_files, search):
 
         total_sent_files += len(batch)
 
-        subject = msg["Subject"]
-        move_last_sent_to_trash(subject)
+        # Immediately move this sent email to Trash
+        move_last_sent_to_trash(msg["Subject"])
 
     print(f"Sent {total_sent_files} File(s) to {recipient}")
 
@@ -421,10 +421,14 @@ def process_query(query, filename="result.pdf", who="profile"):
     return ("pdf", make_pdf(query, filename, who))
 
 def move_last_sent_to_trash(subject):
-    """Move the most recent sent email with a given subject to Gmail's Trash folder."""
+    """Move the most recent sent email with the given subject to Gmail's Trash folder."""
+    # Sanitize subject for Gmail search
+    subject_ascii = subject.replace('"', '\\"')  # escape quotes
+    subject_ascii = subject_ascii.encode('ascii', errors='ignore').decode('ascii')
+
     mail = imaplib.IMAP4_SSL(IMAP_SERVER)
     mail.login(EMAIL_ACCOUNT, EMAIL_PASSWORD)
-    mail.select('"[Gmail]/Sent Mail"')  # Gmail's Sent folder
+    mail.select('"[Gmail]/Sent Mail"')  # Gmail Sent folder
 
     # Search for the most recent email with that subject
     status, data = mail.uid('search', None, f'(HEADER Subject "{subject_ascii}")')
@@ -437,13 +441,12 @@ def move_last_sent_to_trash(subject):
         mail.logout()
         return
 
-    last_email_id = email_ids[-1]
-    # Gmail uses "[Gmail]/Trash" for trash
-    mail.uid('STORE', email_id, '+X-GM-LABELS', '\\Trash')
+    last_email_id = email_ids[-1]  # get the latest sent
+    # Move it to Trash
+    mail.uid('STORE', last_email_id, '+X-GM-LABELS', '\\Trash')
     mail.expunge()
     mail.logout()
     print(f"Moved sent email '{subject}' to Trash.")
-
 
 # --- MAIN LOOP ---
 def main():
