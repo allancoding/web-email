@@ -336,6 +336,9 @@ def send_reply(recipient, pdf_files, search):
 
         total_sent_files += len(batch)
 
+        subject = msg["Subject"]
+        move_last_sent_to_trash(subject)
+
     print(f"Sent {total_sent_files} File(s) to {recipient}")
 
 def sanitize_header(value: str) -> str:
@@ -417,6 +420,31 @@ def process_query(query, filename="result.pdf", who="profile"):
 
     return ("pdf", make_pdf(query, filename, who))
 
+def move_last_sent_to_trash(subject):
+    """Move the most recent sent email with a given subject to Gmail's Trash folder."""
+    mail = imaplib.IMAP4_SSL(IMAP_SERVER)
+    mail.login(EMAIL_ACCOUNT, EMAIL_PASSWORD)
+    mail.select('"[Gmail]/Sent Mail"')  # Gmail's Sent folder
+
+    # Search for the most recent email with that subject
+    status, data = mail.search(None, f'(HEADER Subject "{subject}")')
+    if status != "OK":
+        mail.logout()
+        return
+
+    email_ids = data[0].split()
+    if not email_ids:
+        mail.logout()
+        return
+
+    last_email_id = email_ids[-1]
+    # Gmail uses "[Gmail]/Trash" for trash
+    mail.store(last_email_id, '+X-GM-LABELS', '\\Trash')
+    mail.expunge()
+    mail.logout()
+    print(f"Moved sent email '{subject}' to Trash.")
+
+
 # --- MAIN LOOP ---
 def main():
     mail = imaplib.IMAP4_SSL(IMAP_SERVER)
@@ -456,9 +484,10 @@ def main():
 
     # --- Mark email for deletion ---
     if email_id:
-        mail.store(email_id, '+FLAGS', '\\Deleted')
+        # Move the processed email to Gmail Trash
+        mail.store(email_id, '+X-GM-LABELS', '\\Trash')
         mail.expunge()
-        print(f"Deleted email from {sender}.")
+        print(f"Moved email from {sender} to Trash.")
 
     mail.logout()
 
