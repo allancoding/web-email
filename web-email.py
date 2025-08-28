@@ -439,7 +439,7 @@ def move_last_sent_to_trash(subject):
 
     last_email_id = email_ids[-1]
     # Gmail uses "[Gmail]/Trash" for trash
-    mail.store(last_email_id, '+X-GM-LABELS', '\\Trash')
+    mail.uid('STORE', email_id, '+X-GM-LABELS', '\\Trash')
     mail.expunge()
     mail.logout()
     print(f"Moved sent email '{subject}' to Trash.")
@@ -485,7 +485,7 @@ def main():
     # --- Mark email for deletion ---
     if email_id:
         # Move the processed email to Gmail Trash
-        mail.store(email_id, '+X-GM-LABELS', '\\Trash')
+        mail.uid('STORE', email_id, '+X-GM-LABELS', '\\Trash')
         mail.expunge()
         print(f"Moved email from {sender} to Trash.")
 
