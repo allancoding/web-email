@@ -22,11 +22,11 @@ def fetch_latest_email():
 
     status, data = mail.search(None, 'UNSEEN')
     if status != "OK":
-        return None, None
+        return None, None, None
 
     email_ids = data[0].split()
     if not email_ids:
-        return None, None
+        return None, None, None
 
     for email_id in email_ids[::-1]:  # newest first
         status, msg_data = mail.fetch(email_id, "(RFC822)")
@@ -63,9 +63,9 @@ def fetch_latest_email():
         # Mark as read
         mail.store(email_id, '+FLAGS', '\\Seen')
 
-        return sender, body.strip()
+        return sender, body.strip(), email_id  # return ID for deletion
 
-    return None, None
+    return None, None, None
 
 # --- PARSING ---
 def is_script(body):
@@ -419,7 +419,11 @@ def process_query(query, filename="result.pdf", who="profile"):
 
 # --- MAIN LOOP ---
 def main():
-    sender, body = fetch_latest_email()
+    mail = imaplib.IMAP4_SSL(IMAP_SERVER)
+    mail.login(EMAIL_ACCOUNT, EMAIL_PASSWORD)
+    mail.select(CHECK_FOLDER)
+
+    sender, body, email_id = fetch_latest_email()
     if not body:
         print("No new emails.")
         return
@@ -431,25 +435,32 @@ def main():
     if body.strip().upper() == "HELP":
         handle_help_command(sender)
         print("Sent help reply.")
-        return  # stop further processing
-
-    if is_script(body):
-        commands = parse_script(body)
-        result = process_navigation_commands(commands, "output.pdf", sender)
-        if result:
-            send_reply(sender, result, body)
-            for _, f in result:
-                os.remove(f)
     else:
-        queries = parse_queries(body)
-        pdf_files = []
-        for i, query in enumerate(queries, start=1):
-            filename = f"result_{i}.pdf"
-            type_, result_file = process_query(query, filename, sender)
-            pdf_files.append((query, result_file))
-        send_reply(sender, pdf_files, body)
-        for _, f in pdf_files:
-            os.remove(f)
+        if is_script(body):
+            commands = parse_script(body)
+            result = process_navigation_commands(commands, "output.pdf", sender)
+            if result:
+                send_reply(sender, result, body)
+                for _, f in result:
+                    os.remove(f)
+        else:
+            queries = parse_queries(body)
+            pdf_files = []
+            for i, query in enumerate(queries, start=1):
+                filename = f"result_{i}.pdf"
+                type_, result_file = process_query(query, filename, sender)
+                pdf_files.append((query, result_file))
+            send_reply(sender, pdf_files, body)
+            for _, f in pdf_files:
+                os.remove(f)
+
+    # --- Mark email for deletion ---
+    if email_id:
+        mail.store(email_id, '+FLAGS', '\\Deleted')
+        mail.expunge()
+        print(f"Deleted email from {sender}.")
+
+    mail.logout()
 
 if __name__ == "__main__":
     main()
