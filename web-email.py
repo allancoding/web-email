@@ -427,7 +427,7 @@ def move_last_sent_to_trash(subject):
     mail.select('"[Gmail]/Sent Mail"')  # Gmail's Sent folder
 
     # Search for the most recent email with that subject
-    status, data = mail.search(None, f'(HEADER Subject "{subject}")')
+    status, data = mail.uid('search', None, f'(HEADER Subject "{subject_ascii}")')
     if status != "OK":
         mail.logout()
         return
